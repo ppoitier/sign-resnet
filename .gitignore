@@ -1,3 +1,5 @@
+configs/esann26
+
 logs/
 !logs/.gitkeep
 

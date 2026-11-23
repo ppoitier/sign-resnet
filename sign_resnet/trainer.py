@@ -5,7 +5,20 @@ from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, LinearLR, Se
 from torchmetrics import MetricCollection
 from torchmetrics.classification import Accuracy, F1Score
 
-from sign_resnet.config import SchedulerConfig
+from sign_resnet.config import OptimizerConfig, SchedulerConfig
+
+
+def build_optimizer(parameters, learning_rate: float, config: OptimizerConfig) -> torch.optim.Optimizer:
+    kwargs = {"lr": learning_rate}
+    if config.weight_decay is not None:
+        kwargs["weight_decay"] = config.weight_decay
+    if config.name == "sgd":
+        return torch.optim.SGD(parameters, momentum=config.momentum, nesterov=config.nesterov, **kwargs)
+    if config.name == "adam":
+        return torch.optim.Adam(parameters, betas=config.betas, **kwargs)
+    if config.name == "adamw":
+        return torch.optim.AdamW(parameters, betas=config.betas, **kwargs)
+    raise ValueError(f"Unknown optimizer: {config.name}")
 
 
 class ClassificationMetrics(MetricCollection):
@@ -40,6 +53,7 @@ class RecognitionModule(pl.LightningModule):
         n_classes: int,
         learning_rate: float,
         class_weights: Tensor | None = None,
+        optimizer: OptimizerConfig | None = None,
         lr_scheduler: SchedulerConfig | None = None,
         max_epochs: int | None = None,
     ):
@@ -47,6 +61,7 @@ class RecognitionModule(pl.LightningModule):
         self.model = model
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         self.learning_rate = learning_rate
+        self.optimizer_config = optimizer or OptimizerConfig()
         self.lr_scheduler = lr_scheduler
         self.max_epochs = max_epochs
 
@@ -60,6 +75,7 @@ class RecognitionModule(pl.LightningModule):
         self.test_logits: dict[str, object] = {}
 
     def forward(self, images: Tensor) -> Tensor:
+        print("SHAPE:", images.shape)
         return self.model(images)
 
     def shared_step(self, batch: dict, split: str) -> tuple[Tensor, Tensor]:
@@ -86,7 +102,7 @@ class RecognitionModule(pl.LightningModule):
             self.test_logits[instance_id] = instance_logits.float().cpu().numpy().astype("float16")
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate)
+        optimizer = build_optimizer(self.model.parameters(), self.learning_rate, self.optimizer_config)
         if self.lr_scheduler is None:
             return optimizer
         config = self.lr_scheduler

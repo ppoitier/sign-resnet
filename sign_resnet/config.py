@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class Schema(BaseModel):
@@ -34,6 +34,23 @@ class SplitConfig(Schema):
     n_workers: int = 0
 
 
+class AugmentationConfig(Schema):
+    """Random augmentations of the training clips. 0 disables an augmentation."""
+
+    # Probability of mirroring the signer (left and right are swapped).
+    flip: float = 0.0
+    # Rotation by an angle drawn in [-rotation, rotation] (radians), around the shoulders.
+    rotation: float = 0.0
+    # Scaling by a factor drawn in [1 - scale, 1 + scale], around the shoulders.
+    scale: float = 0.0
+    # Translation by offsets drawn in [-translation, translation] (shoulder widths).
+    translation: float = 0.0
+    # Standard deviation of the Gaussian noise added to each coordinate (shoulder widths).
+    noise: float = 0.0
+    # Crop a random window of n_frames frames (instead of the first ones) in long clips.
+    random_crop: bool = False
+
+
 class DataConfig(Schema):
     training: SplitConfig
     validation: SplitConfig
@@ -44,12 +61,47 @@ class DataConfig(Schema):
     n_frames: int = 64
     # Drop the z coordinate (the third image channel is then filled with zeros).
     drop_z: bool = False
+    # "shoulders" or "per-frame-minmax" (as in slp), see sign_resnet/transforms.py.
+    normalization: Literal["shoulders", "per-frame-minmax"] = "shoulders"
+    # Random augmentations of the training set (None = no augmentation).
+    augmentation: AugmentationConfig | None = None
+
+    @model_validator(mode="after")
+    def check_augmentation(self):
+        aug = self.augmentation
+        if self.normalization == "per-frame-minmax" and aug and (aug.scale > 0 or aug.translation > 0):
+            raise ValueError(
+                "Scale and translation augmentations have no effect with the 'per-frame-minmax' "
+                "normalization. Use the 'shoulders' normalization or set them to 0."
+            )
+        return self
 
 
 class ModelConfig(Schema):
     n_layers: Literal[18, 34, 50, 101, 152] = 18
     # Initialize with ImageNet weights.
     pretrained: bool = False
+
+
+class OptimizerConfig(Schema):
+    """Optimizer (the learning rate is training.learning_rate)."""
+
+    name: Literal["sgd", "adam", "adamw"] = "adamw"
+    # None = PyTorch default (0 for SGD and Adam, 0.01 for AdamW).
+    weight_decay: float | None = None
+    # SGD only.
+    momentum: float = 0.9
+    nesterov: bool = False
+    # Adam and AdamW only.
+    betas: tuple[float, float] = (0.9, 0.999)
+
+    @model_validator(mode="after")
+    def check_options(self):
+        if self.nesterov and self.name != "sgd":
+            raise ValueError("'nesterov' is only available with the 'sgd' optimizer.")
+        if self.nesterov and self.momentum <= 0:
+            raise ValueError("'nesterov' requires a momentum > 0.")
+        return self
 
 
 class SchedulerConfig(Schema):
@@ -68,6 +120,7 @@ class TrainingConfig(Schema):
     max_epochs: int = 150
     early_stopping_patience: int = 10
     gradient_clipping: float | None = None
+    optimizer: OptimizerConfig = OptimizerConfig()
     lr_scheduler: SchedulerConfig | None = None
     # Class weighting strategy (see sldl.utils.weighting), e.g. "inverse". None = no weights.
     class_weights: str | None = None

@@ -52,6 +52,7 @@ def main(config_path: str):
         n_classes=training.n_classes,
         learning_rate=training.learning_rate,
         class_weights=class_weights,
+        optimizer=training.optimizer,
         lr_scheduler=training.lr_scheduler,
         max_epochs=training.max_epochs,
     )

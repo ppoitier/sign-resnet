@@ -1,9 +1,5 @@
-"""Isolated sign datasets: each clip of poses is turned into an image for the ResNet.
-
-    poses {body_part: (T, L_i, 3)}  ->  concatenate  ->  (T, L, 3)
-                                    ->  keep the first n_frames, resample to n_frames
-                                    ->  image (3, L, n_frames): landmarks as rows, frames as
-                                        columns, x/y/z as RGB channels (scaled to [0, 255])
+"""Isolated sign datasets: each clip of poses is turned into an image for the ResNet
+(see sign_resnet/transforms.py). Random augmentations are only applied to the training set.
 """
 
 from collections import Counter
@@ -11,31 +7,16 @@ from collections import Counter
 import torch
 from sldl import SignLanguageDataset
 from sldl.utils.weighting import compute_class_weights
-from sign_language_tools.common.transforms import Compose
-from sign_language_tools.pose.transforms import (
-    Concatenate,
-    DropCoordinates,
-    Resample,
-    TemporalCrop,
-    ToRGBImage,
-)
 from torch.utils.data import DataLoader
 
 from sign_resnet.config import DataConfig, SplitConfig
+from sign_resnet.transforms import build_pose_transform
 
 SPLITS = ("training", "validation", "testing")
 
 
-def build_pose_to_image_transform(body_parts: list[str], n_frames: int = 64, drop_z: bool = False):
-    transforms = [Concatenate(body_parts)]
-    if drop_z:
-        transforms.append(DropCoordinates("z"))
-    transforms += [TemporalCrop(n_frames), Resample(n_frames, "nearest"), ToRGBImage()]
-    return Compose(transforms)
-
-
 def collate(samples: list[dict]) -> dict:
-    """images (N, 3, L, n_frames) float in [0, 255], labels (N,), ids (list of N str)."""
+    """images (N, 3, L, n_frames) float, labels (N,), ids (list of N str)."""
     return {
         "images": torch.stack([torch.as_tensor(s["poses"]) for s in samples]).float(),
         "labels": torch.tensor([s["label_id"] for s in samples], dtype=torch.long),
@@ -43,12 +24,12 @@ def collate(samples: list[dict]) -> dict:
     }
 
 
-def build_dataset(split: SplitConfig, data: DataConfig) -> SignLanguageDataset:
+def build_dataset(split: SplitConfig, data: DataConfig, augment: bool = False) -> SignLanguageDataset:
     return SignLanguageDataset(
         shards_url=split.shards_url,
         isolated=True,
         body_parts=tuple(data.body_parts),
-        pose_transform=build_pose_to_image_transform(data.body_parts, data.n_frames, data.drop_z),
+        pose_transform=build_pose_transform(data, augment=augment),
     )
 
 
@@ -59,7 +40,7 @@ def load_datasets_and_loaders(
     datasets, loaders = {}, {}
     for name in SPLITS:
         split: SplitConfig = getattr(config, name)
-        datasets[name] = build_dataset(split, config)
+        datasets[name] = build_dataset(split, config, augment=name == "training")
         loaders[name] = DataLoader(
             datasets[name],
             batch_size=split.batch_size,
