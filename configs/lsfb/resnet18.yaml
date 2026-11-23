@@ -1,0 +1,15 @@
+# ResNet-18 trained from scratch.
+from: "data.yaml"
+
+experiment:
+  variant: "resnet18"
+
+model:
+  n_layers: 18
+  pretrained: false
+
+training:
+  n_classes: 500
+  learning_rate: 1.0e-4
+  max_epochs: 150
+  early_stopping_patience: 10

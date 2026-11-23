@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sign-resnet"
+version = "0.1.0"
+description = "ResNet on pose images for isolated sign language recognition"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Pierre Poitier", email = "pierre.poitier@unamur.be" }]
+dependencies = [
+    "sign-language-tools",
+    "sign-language-data-loading",
+    "click",
+    "lightning",
+    "mlflow",
+    "numpy",
+    "pydantic>=2",
+    "pyyaml",
+    "tensorboard",
+    "torch",
+    "torchmetrics",
+    "torchvision",
+]
+
+[tool.setuptools.packages.find]
+include = ["sign_resnet*"]

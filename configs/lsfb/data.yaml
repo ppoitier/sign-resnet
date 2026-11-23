@@ -1,0 +1,28 @@
+# LSFB-ISOL (500 most frequent signs). Inherited by the model configs of this folder.
+
+experiment:
+  id: "islr/lsfb"
+  output_dir: "E:/outputs/sign_resnet"
+  debug: true
+  show_progress_bar: true
+
+data:
+  training:
+    shards_url: "E:/datasets/sign-language/lsfb-100-tmp/export/lsfb-isol-100/shards/100/shard_{000002..000009}.tar"
+#    shards_url: "E:/datasets/sign-language/lsfb-isol/shards/500/shard_{000002..000009}.tar"
+    batch_size: 256
+    shuffle: true
+  validation:
+    shards_url: "E:/datasets/sign-language/lsfb-100-tmp/export/lsfb-isol-100/shards/100/shard_000001.tar"
+#    shards_url: "E:/datasets/sign-language/lsfb-isol/shards/500/shard_000001.tar"
+    batch_size: 256
+  testing:
+    shards_url: "E:/datasets/sign-language/lsfb-100-tmp/export/lsfb-isol-100/shards/100/shard_000000.tar"
+#    shards_url: "E:/datasets/sign-language/lsfb-isol/shards/500/shard_000000.tar"
+    batch_size: 256
+
+  # upper_pose (23) + left_hand (21) + right_hand (21) = 65 landmarks
+  # -> images of shape (3, 65, n_frames).
+  body_parts: ["upper_pose", "left_hand", "right_hand"]
+  n_frames: 64
+  drop_z: false

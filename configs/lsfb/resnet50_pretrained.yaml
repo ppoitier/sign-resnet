@@ -1,0 +1,20 @@
+# ResNet-50 initialized with ImageNet weights, with a warmup + cosine learning rate schedule.
+from: "data.yaml"
+
+experiment:
+  variant: "resnet50_pretrained"
+
+model:
+  n_layers: 50
+  pretrained: true
+
+training:
+  n_classes: 500
+  learning_rate: 1.0e-4
+  max_epochs: 150
+  early_stopping_patience: 20
+  lr_scheduler:
+    warmup_epochs: 10
+    plateau_epochs: 0
+    start_lr: 1.0e-6
+    end_lr: 1.0e-6

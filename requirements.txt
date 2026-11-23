@@ -1,0 +1,11 @@
+click
+lightning
+mlflow
+numpy
+pydantic>=2
+pyyaml
+tensorboard
+torch
+torchmetrics
+torchvision
+webdataset
