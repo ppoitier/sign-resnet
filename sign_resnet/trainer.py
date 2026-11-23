@@ -75,7 +75,6 @@ class RecognitionModule(pl.LightningModule):
         self.test_logits: dict[str, object] = {}
 
     def forward(self, images: Tensor) -> Tensor:
-        print("SHAPE:", images.shape)
         return self.model(images)
 
     def shared_step(self, batch: dict, split: str) -> tuple[Tensor, Tensor]:
