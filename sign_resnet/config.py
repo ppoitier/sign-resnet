@@ -127,6 +127,9 @@ class TrainingConfig(Schema):
 
     # Initialize the model with the weights of a checkpoint (e.g. for fine-tuning).
     checkpoint_path: str | None = None
+    # Discard the classification head of the checkpoint and train a new one
+    # (e.g. fine-tuning on a dataset with a different number of classes).
+    reset_classifier: bool = False
     # Only evaluate the model (requires checkpoint_path).
     skip_training: bool = False
 

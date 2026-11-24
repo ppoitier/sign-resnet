@@ -118,12 +118,23 @@ class RecognitionModule(pl.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"}}
 
 
-def load_model_weights(model: nn.Module, checkpoint_path: str):
-    """Load the model weights from a Lightning checkpoint of a RecognitionModule."""
+def load_model_weights(model: nn.Module, checkpoint_path: str, reset_classifier: bool = False):
+    """Load the model weights from a Lightning checkpoint of a RecognitionModule.
+
+    If `reset_classifier` is True, the classification head (`fc`) of the checkpoint is discarded and
+    the freshly initialized head of `model` is kept (e.g. to fine-tune on a different number of classes).
+    """
     state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)["state_dict"]
     model_state_dict = {
         key.removeprefix("model.").replace("_orig_mod.", ""): value  # "_orig_mod" comes from torch.compile
         for key, value in state_dict.items()
         if key.startswith("model.")
     }
-    model.load_state_dict(model_state_dict)
+    if not reset_classifier:
+        model.load_state_dict(model_state_dict)
+        return
+    model_state_dict = {key: value for key, value in model_state_dict.items() if not key.startswith("fc.")}
+    missing, unexpected = model.load_state_dict(model_state_dict, strict=False)
+    # Only the classification head should be left uninitialized by the checkpoint.
+    if unexpected or any(not key.startswith("fc.") for key in missing):
+        raise RuntimeError(f"Checkpoint mismatch. Missing keys: {missing}. Unexpected keys: {unexpected}.")

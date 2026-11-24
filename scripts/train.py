@@ -43,7 +43,7 @@ def main(config_path: str):
     print(f"ResNet-{config.model.n_layers}, number of parameters: {count_parameters(model):,}")
     if training.checkpoint_path is not None:
         print("Loading weights from:", training.checkpoint_path)
-        load_model_weights(model, training.checkpoint_path)
+        load_model_weights(model, training.checkpoint_path, reset_classifier=training.reset_classifier)
     if experiment.compile:
         model = torch.compile(model)
 
